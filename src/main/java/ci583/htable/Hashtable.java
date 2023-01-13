@@ -1,11 +1,7 @@
 package ci583.htable;
 
 import java.lang.reflect.Array;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * A HashTable with no deletions allowed. Duplicates overwrite the existing value. Values are of
@@ -19,11 +15,11 @@ public class Hashtable<V> {
 
 	private static final int DOUBLE_HASH_MAX = 8; //used in the doubleHash method.
 	private int max; //the size of arr. This should be a prime number.
-	private Object[] arr; //an array of Pair objects, where each pair contains the key and value stored in the hashtable.
+	private int initialCapacity;
+	private List<Pair> arr; //an array of Pair objects, where each pair contains the key and value stored in the hashtable.
 	private int itemCount; //the number of items stored in arr.
-	private final double maxLoad = 0.6; //the maximum load factor.
 
-	public enum PROBE_TYPE {
+	public  enum PROBE_TYPE {
 		LINEAR_PROBE, QUADRATIC_PROBE, DOUBLE_HASH
 	}
 	private final PROBE_TYPE probeType; //the type of probe to use when dealing with collisions
@@ -38,12 +34,20 @@ public class Hashtable<V> {
 		probeType = pt;
 		if (isPrime(initialCapacity)) {
 			max = initialCapacity;
-			arr = new Object[max];
+			arr = makeArr(max);
 		}
 		else {
 			max = nextPrime(initialCapacity);
-			arr = new Object[max];
+			arr = makeArr(max);
 		}
+	}
+	public List<Pair> makeArr(int size) {
+		this.initialCapacity = size;
+		arr = new ArrayList<>(size);
+		for (int i = 0; i <= size; i++) {
+			arr.add(i, (new Pair(null, null)));
+		}
+		return arr;
 	}
 
 	/**
@@ -54,11 +58,11 @@ public class Hashtable<V> {
 		probeType = PROBE_TYPE.LINEAR_PROBE;
 		if (isPrime(initialCapacity)) {
 			max = initialCapacity;
-			arr = new Object[max];
+			arr = makeArr(max);
 		}
 		else {
 			max = nextPrime(initialCapacity);
-			arr = new Object[max];
+			arr = makeArr(max);
 		}
 	}
 
@@ -77,23 +81,21 @@ public class Hashtable<V> {
 		if (key == null) {
 			throw new IllegalArgumentException("Key cannot be null");
 		}
-		if (getLoadFactor() >= max) {
+		//the maximum load factor.
+		double maxLoad = 0.6;
+		if (getLoadFactor() >= maxLoad) {
 			resize();
 		}
 
 		int hash = hash(key);
 		Pair item = new Pair(key, value);
-		int pointer = findEmptyOrSameKey(hash, key, 1);
+		int pointer = findEmptyOrSameKey(hash, key, 0);
 
 		if (!hasKey(key)) {
 			itemCount++;
 		}
 
-
-
-		if (arr[pointer] == null) {
-			arr[pointer] = item;
-		}
+		arr.set(pointer, item);
 	}
 
 	/**
@@ -106,7 +108,7 @@ public class Hashtable<V> {
 	 * @return		An Optional containing the value we are asked to find, which is empty if the key was not present.
 	 */
 	public Optional<V> get(String key) {
-		return find(hash(key), key, 1);
+		return find(hash(key), key, 0);
 	}
 
 	/**
@@ -115,10 +117,7 @@ public class Hashtable<V> {
 	 * @return		True if the hashtable contains the key.
 	 */
 	public boolean hasKey(String key) {
-		if (get(key).isEmpty()) {
-			return false;
-		}
-		return true;
+		return get(key).isPresent();
 	}
 
 	/**
@@ -128,10 +127,9 @@ public class Hashtable<V> {
 	public Collection<String> getKeys() {
 		ArrayList<String> list = new ArrayList<>();
 
-		for (int i = 0; i < arr.length; i++) {
-			if (arr[i] != null) {
-				list.add(arr[i].hashCode());
-			}
+		for (Pair o : arr) {
+			if (!(o.key == new Pair(null, null).key))
+				list.add(o.getKey());
 		}
 		return list;
 	}
@@ -141,7 +139,7 @@ public class Hashtable<V> {
 	 * @return	The load factor
 	 */
 	public double getLoadFactor() {
-		double length = arr.length;
+		double length = itemCount;
 		return (length / max);
 	}
 
@@ -150,7 +148,7 @@ public class Hashtable<V> {
 	 * @return	The maximum capacity.
 	 */
 	public int getCapacity() {
-		throw new java.lang.UnsupportedOperationException("Not implemented yet.");
+		return max;
 	}
 	
 	/**
@@ -167,16 +165,15 @@ public class Hashtable<V> {
 	 * @return			The value of the Pair object with the right key.
 	 */
 	private Optional<V> find(int startPos, String key, int stepNum) {
-		if (arr[startPos] == null) {
+		if (Objects.equals(arr.get(startPos).key, new Pair(null, null).key)) {
 			return Optional.empty();
 		}
-		if (arr[startPos].getKey() == key) {
-			return Optional.of(arr[startPos].getValue());
+		if (Objects.equals(arr.get(startPos).getKey(), key)) {
+			return Optional.of(arr.get(startPos).getValue());
 		}
-		final Integer location = getNextLocation(startPos, key, stepNum);
+		final int location = getNextLocation(startPos, key, stepNum);
 
-		stepNum++;
-		return find(location, key, stepNum);
+		return find(location, key, stepNum+1);
 	}
 
 	/**
@@ -191,13 +188,13 @@ public class Hashtable<V> {
 	 * @return			The location at which a Pair object with the key `key' can be stored.
 	 */
 	private int findEmptyOrSameKey(int startPos, String key, int stepNum) {
-		if (arr[startPos] == null) {
+		if (Objects.equals(arr.get(startPos).key, new Pair(null, null).key)) {
 			return startPos;
 		}
-		if (arr[startPos].getKey() == key) {
+		if (Objects.equals(arr.get(startPos).key, key)) {
 			return startPos;
 		}
-		final Integer location = getNextLocation(startPos, key, stepNum);
+		final int location = getNextLocation(startPos, key, stepNum);
 
 		stepNum++;
 		return findEmptyOrSameKey(location, key, stepNum);
@@ -253,7 +250,8 @@ public class Hashtable<V> {
 		for (int i = 0; i < key.length(); i++) {
 			hash = key.charAt(i) + ((hash << 5) - hash);
 		}
-		return hash;
+		if (hash < 0) {hash = Math.abs(hash);}
+		return hash % initialCapacity;
 	}
 
 	/**
@@ -291,11 +289,12 @@ public class Hashtable<V> {
 	 * of the old array.
 	 */
 	private void resize() {
-		max = max * 2;
+		max = nextPrime(max * 2);
 		itemCount = 0;
 
-		final Object[] oldArr = arr;
-		arr = Arrays.copyOf(oldArr, max);
+		List<Pair> oldarr = arr;
+		arr = new ArrayList<>(max);
+		arr.addAll(oldarr);
 	}
 
 	
