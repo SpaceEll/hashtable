@@ -128,7 +128,7 @@ public class Hashtable<V> {
 		ArrayList<String> list = new ArrayList<>();
 
 		for (Pair o : arr) {
-			if (!(o.key == new Pair(null, null).key))
+			if (!(Objects.equals(o.key, new Pair(null, null).key)))
 				list.add(o.getKey());
 		}
 		return list;
